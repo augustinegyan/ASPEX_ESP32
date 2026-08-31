@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASPEX_CUBE — Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #fff;
+            color: #111;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── Nav ── */
+        nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 48px;
+            height: 56px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .nav-left { display: flex; align-items: center; gap: 32px; }
+
+        .wordmark {
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .nav-links { display: flex; gap: 4px; }
+        .nav-links a {
+            text-decoration: none;
+            font-size: 13px;
+            color: #aaa;
+            padding: 6px 12px;
+            border-radius: 6px;
+            transition: color .15s;
+        }
+        .nav-links a:hover { color: #111; }
+        .nav-links a.active { color: #111; font-weight: 500; }
+
+        .nav-right { display: flex; align-items: center; gap: 20px; }
+
+        .status-pill {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 12px; color: #999;
+        }
+        .status-pill::before {
+            content: ''; width: 5px; height: 5px; border-radius: 50%; background: #111;
+        }
+
+        .time-display {
+            font-size: 12px; color: #ccc;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ── Page ── */
+        .page {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 36px 48px 64px;
+        }
+
+        .page-title {
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: -0.3px;
+            margin-bottom: 4px;
+        }
+
+        .page-sub {
+            font-size: 13px;
+            color: #bbb;
+            margin-bottom: 36px;
+        }
+
+        /* ── KPI Summary Row ── */
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1px;
+            background: #eee;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .kpi {
+            background: #fff;
+            padding: 24px 28px;
+        }
+
+        .kpi-label {
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #bbb;
+            margin-bottom: 10px;
+        }
+
+        .kpi-value {
+            font-size: 28px;
+            font-weight: 300;
+            letter-spacing: -1px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .kpi-unit {
+            font-size: 13px;
+            font-weight: 400;
+            color: #ccc;
+            margin-left: 2px;
+        }
+
+        .kpi-delta {
+            font-size: 11px;
+            color: #aaa;
+            margin-top: 6px;
+        }
+
+        .kpi-delta .up { color: #111; }
+        .kpi-delta .down { color: #999; }
+
+        /* ── Main Grid ── */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1px;
+            background: #eee;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .panel { background: #fff; position: relative; }
+
+        .panel-label {
+            position: absolute;
+            top: 16px; left: 20px;
+            font-size: 11px; font-weight: 500;
+            text-transform: uppercase; letter-spacing: 0.8px;
+            color: #ccc; z-index: 2;
+        }
+
+        .panel-badge {
+            position: absolute;
+            top: 16px; right: 20px;
+            font-size: 10px; font-weight: 500;
+            padding: 2px 8px; border-radius: 4px;
+            background: #f5f5f5; color: #bbb;
+            letter-spacing: 0.3px; z-index: 2;
+        }
+
+        /* ── 3D Canvas ── */
+        #cubesat-canvas {
+            width: 100%; height: 380px;
+            display: block; cursor: grab;
+            background: #fafafa;
+        }
+        #cubesat-canvas:active { cursor: grabbing; }
+
+        /* ── Camera ── */
+        .camera-feed {
+            height: 380px;
+            display: flex; align-items: center; justify-content: center;
+            background: #fafafa;
+        }
+
+        .cam-empty { text-align: center; }
+
+        .cam-ring {
+            width: 56px; height: 56px; border-radius: 50%;
+            border: 1.5px solid #e0e0e0;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 16px;
+        }
+
+        .cam-ring svg { width: 22px; height: 22px; stroke: #ccc; }
+
+        .cam-empty p { font-size: 13px; color: #ccc; }
+        .cam-empty .cam-sub { font-size: 11px; color: #ddd; margin-top: 4px; }
+
+        .bracket {
+            position: absolute;
+            width: 14px; height: 14px; border-color: #ddd;
+        }
+        .bracket.tl { top: 14px; left: 14px; border-top: 1.5px solid; border-left: 1.5px solid; }
+        .bracket.tr { top: 14px; right: 14px; border-top: 1.5px solid; border-right: 1.5px solid; }
+        .bracket.bl { bottom: 14px; left: 14px; border-bottom: 1.5px solid; border-left: 1.5px solid; }
+        .bracket.br { bottom: 14px; right: 14px; border-bottom: 1.5px solid; border-right: 1.5px solid; }
+
+        /* ── Sensor Strip ── */
+        .sensor-strip {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1px;
+            background: #eee;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .sensor {
+            background: #fff;
+            padding: 28px 28px 24px;
+        }
+
+        .sensor-head {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .sensor-name {
+            font-size: 11px; font-weight: 500;
+            text-transform: uppercase; letter-spacing: 0.6px; color: #bbb;
+        }
+
+        .sensor-tag {
+            font-size: 10px; font-weight: 500;
+            padding: 2px 8px; border-radius: 4px;
+            background: #f5f5f5; color: #aaa;
+        }
+
+        .sensor-reading {
+            font-size: 44px; font-weight: 300;
+            letter-spacing: -2px; line-height: 1;
+            margin-bottom: 4px;
+            font-variant-numeric: tabular-nums;
+            color: #000;
+        }
+
+        .sensor-unit-lg {
+            font-size: 16px; font-weight: 300; color: #999; margin-left: 2px;
+        }
+
+        .sensor-bar {
+            width: 100%; height: 3px;
+            background: #f0f0f0; border-radius: 2px;
+            margin-top: 20px; overflow: hidden;
+        }
+
+        .sensor-bar-inner {
+            height: 100%; background: #111; border-radius: 2px;
+            transition: width .8s cubic-bezier(.4,0,.2,1);
+        }
+
+        .sensor-range {
+            display: flex; justify-content: space-between;
+            font-size: 10px; color: #ddd; margin-top: 6px;
+        }
+
+        /* ── Gyroscope ── */
+        .gyro-axes {
+            display: flex; gap: 16px; margin-top: 14px;
+        }
+
+        .gyro-axis {
+            flex: 1;
+        }
+
+        .gyro-axis-label {
+            font-size: 10px; font-weight: 500;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            color: #ccc; margin-bottom: 4px;
+        }
+
+        .gyro-axis-value {
+            font-size: 18px; font-weight: 300;
+            color: #000;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .gyro-axis-unit {
+            font-size: 11px; color: #bbb; margin-left: 1px;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            nav { padding: 0 20px; }
+            .page { padding: 24px 20px; }
+            .kpi-row { grid-template-columns: repeat(2, 1fr); }
+            .main-grid { grid-template-columns: 1fr; }
+            .sensor-strip { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <div class="nav-left">
+            <div class="wordmark">ASPEX_CUBE</div>
+            <div class="nav-links">
+                <a href="#" class="active">Overview</a>
+                <a href="#">Telemetry</a>
+                <a href="#">Logs</a>
+                <a href="#">Settings</a>
+            </div>
+        </div>
+        <div class="nav-right">
+            <div class="status-pill">Connected</div>
+            <div class="time-display" id="clock">00:00:00</div>
+        </div>
+    </nav>
+
+    <main class="page">
+        <h1 class="page-title">Mission Overview</h1>
+        <p class="page-sub">Real-time telemetry from ASPEX_CUBE</p>
+
+        <!-- KPI Summary Cards -->
+        <div class="kpi-row">
+            <div class="kpi">
+                <div class="kpi-label">Uptime</div>
+                <div class="kpi-value" id="kpi-uptime">14<span class="kpi-unit">d</span> 07<span class="kpi-unit">h</span></div>
+                <div class="kpi-delta"><span class="up">↑</span> Active since Aug 17</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">Packets Sent</div>
+                <div class="kpi-value" id="kpi-packets">12,847</div>
+                <div class="kpi-delta"><span class="up">+142</span> last hour</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">Signal Strength</div>
+                <div class="kpi-value">−67<span class="kpi-unit">dBm</span></div>
+                <div class="kpi-delta">Strong</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">Battery</div>
+                <div class="kpi-value" id="kpi-bat">82<span class="kpi-unit">%</span></div>
+                <div class="kpi-delta"><span class="down">↓ 0.3%</span> / hr</div>
+            </div>
+        </div>
+
+        <!-- 3D + Camera -->
+        <div class="main-grid">
+            <div class="panel">
+                <div class="panel-label">3D Model</div>
+                <div class="panel-badge">Drag to rotate</div>
+                <canvas id="cubesat-canvas"></canvas>
+            </div>
+            <div class="panel">
+                <div class="panel-label">Camera</div>
+                <div class="panel-badge">CAM-01</div>
+                <div class="camera-feed">
+                    <div class="bracket tl"></div>
+                    <div class="bracket tr"></div>
+                    <div class="bracket bl"></div>
+                    <div class="bracket br"></div>
+                    <div class="cam-empty">
+                        <div class="cam-ring">
+                            <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9A2.25 2.25 0 0013.5 5.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"/>
+                            </svg>
+                        </div>
+                        <p>No signal</p>
+                        <p class="cam-sub">ESP32-CAM · Waiting for stream</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sensors -->
+        <div class="sensor-strip">
+            <div class="sensor">
+                <div class="sensor-head">
+                    <span class="sensor-name">Temperature</span>
+                    <span class="sensor-tag">NOMINAL</span>
+                </div>
+                <div class="sensor-reading" id="v-temp">24.6<span class="sensor-unit-lg">°C</span></div>
+                <div class="sensor-bar"><div class="sensor-bar-inner" id="b-temp" style="width:45%"></div></div>
+                <div class="sensor-range"><span>-10</span><span>60</span></div>
+            </div>
+            <div class="sensor">
+                <div class="sensor-head">
+                    <span class="sensor-name">Turbidity</span>
+                    <span class="sensor-tag">NOMINAL</span>
+                </div>
+                <div class="sensor-reading" id="v-turb">132<span class="sensor-unit-lg">NTU</span></div>
+                <div class="sensor-bar"><div class="sensor-bar-inner" id="b-turb" style="width:33%"></div></div>
+                <div class="sensor-range"><span>0</span><span>400</span></div>
+            </div>
+            <div class="sensor">
+                <div class="sensor-head">
+                    <span class="sensor-name">Pressure</span>
+                    <span class="sensor-tag">NOMINAL</span>
+                </div>
+                <div class="sensor-reading" id="v-pres">1013<span class="sensor-unit-lg">hPa</span></div>
+                <div class="sensor-bar"><div class="sensor-bar-inner" id="b-pres" style="width:68%"></div></div>
+                <div class="sensor-range"><span>300</span><span>1100</span></div>
+            </div>
+            <div class="sensor">
+                <div class="sensor-head">
+                    <span class="sensor-name">Gyroscope</span>
+                    <span class="sensor-tag">ACTIVE</span>
+                </div>
+                <div class="sensor-reading" id="v-gyro-main">0.12<span class="sensor-unit-lg">°/s</span></div>
+                <div class="gyro-axes">
+                    <div class="gyro-axis">
+                        <div class="gyro-axis-label">X</div>
+                        <div class="gyro-axis-value" id="v-gx">0.12<span class="gyro-axis-unit">°/s</span></div>
+                    </div>
+                    <div class="gyro-axis">
+                        <div class="gyro-axis-label">Y</div>
+                        <div class="gyro-axis-value" id="v-gy">−0.34<span class="gyro-axis-unit">°/s</span></div>
+                    </div>
+                    <div class="gyro-axis">
+                        <div class="gyro-axis-label">Z</div>
+                        <div class="gyro-axis-value" id="v-gz">0.08<span class="gyro-axis-unit">°/s</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    /* ── Clock ── */
+    function tick() {
+        const d = new Date();
+        document.getElementById('clock').textContent =
+            String(d.getHours()).padStart(2,'0') + ':' +
+            String(d.getMinutes()).padStart(2,'0') + ':' +
+            String(d.getSeconds()).padStart(2,'0');
+    }
+    setInterval(tick, 1000); tick();
+
+    /* ════════════════════════════════════════
+       Three.js — Ash CubeSat (no antenna)
+       ════════════════════════════════════════ */
+    const canvas = document.getElementById('cubesat-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    renderer.setClearColor(0xfafafa, 1);
+
+    const scene = new THREE.Scene();
+    const cam3 = new THREE.PerspectiveCamera(32, canvas.clientWidth / canvas.clientHeight, 0.1, 100);
+    cam3.position.set(5, 3.5, 5.5);
+    cam3.lookAt(0, 0, 0);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+    const dir = new THREE.DirectionalLight(0xffffff, 0.7);
+    dir.position.set(4, 8, 5);
+    scene.add(dir);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.25);
+    fill.position.set(-3, 2, -4);
+    scene.add(fill);
+
+    const cubesat = new THREE.Group();
+
+    /* Ash body */
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x9e9e9e, metalness: 0.35, roughness: 0.55 });
+    const bodyGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+    cubesat.add(new THREE.Mesh(bodyGeo, bodyMat));
+
+    /* Subtle edge lines */
+    cubesat.add(new THREE.LineSegments(
+        new THREE.EdgesGeometry(bodyGeo),
+        new THREE.LineBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.18 })
+    ));
+
+    /* Solar panels — darker ash */
+    const panelMat = new THREE.MeshStandardMaterial({ color: 0x6e6e6e, metalness: 0.55, roughness: 0.4 });
+    function makePanel(x, tilt) {
+        const g = new THREE.Group();
+        g.add(new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.03, 1.0), panelMat));
+        const lm = new THREE.LineBasicMaterial({ color: 0x999999, transparent: true, opacity: 0.2 });
+        for (let i = -0.7; i <= 0.7; i += 0.35) {
+            const lg = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(i, 0.02, -0.48), new THREE.Vector3(i, 0.02, 0.48)]);
+            g.add(new THREE.Line(lg, lm));
+        }
+        for (let j = -0.4; j <= 0.4; j += 0.4) {
+            const lg = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(-0.78, 0.02, j), new THREE.Vector3(0.78, 0.02, j)]);
+            g.add(new THREE.Line(lg, lm));
+        }
+        g.position.set(x, 0.6, 0);
+        g.rotation.z = tilt;
+        return g;
+    }
+    cubesat.add(makePanel(1.5, -0.1));
+    cubesat.add(makePanel(-1.5, 0.1));
+
+    /* Lens */
+    const lens = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.1, 0.13, 0.08, 32),
+        new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.9, roughness: 0.1 })
+    );
+    lens.rotation.x = Math.PI / 2;
+    lens.position.set(0, -0.1, 0.64); cubesat.add(lens);
+
+    const lensInner = new THREE.Mesh(
+        new THREE.CircleGeometry(0.07, 32),
+        new THREE.MeshStandardMaterial({ color: 0x444444 })
+    );
+    lensInner.position.set(0, -0.1, 0.69); cubesat.add(lensInner);
+
+    scene.add(cubesat);
+
+    /* Interaction */
+    let drag = false, prev = {x:0,y:0}, vel = {x:0,y:0};
+    canvas.addEventListener('pointerdown', e => { drag = true; prev = {x:e.clientX,y:e.clientY}; });
+    window.addEventListener('pointerup', () => drag = false);
+    canvas.addEventListener('pointermove', e => {
+        if (!drag) return;
+        vel.y += (e.clientX - prev.x) * 0.004;
+        vel.x += (e.clientY - prev.y) * 0.004;
+        prev = {x:e.clientX, y:e.clientY};
+    });
+
+    function loop() {
+        requestAnimationFrame(loop);
+        cubesat.rotation.y += 0.003;
+        cubesat.rotation.y += vel.y;
+        cubesat.rotation.x += vel.x;
+        vel.x *= 0.93; vel.y *= 0.93;
+        renderer.render(scene, cam3);
+    }
+    loop();
+
+    window.addEventListener('resize', () => {
+        renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+        cam3.aspect = canvas.clientWidth / canvas.clientHeight;
+        cam3.updateProjectionMatrix();
+    });
+
+    /* ── Sensors ── */
+    let t = 24.6, tb = 132, p = 1013;
+    let gx = 0.12, gy = -0.34, gz = 0.08;
+
+    setInterval(() => {
+        t  = Math.max(-10, Math.min(60,   t  + (Math.random()-.5)*1.2));
+        tb = Math.max(0,   Math.min(400,  tb + (Math.random()-.5)*8));
+        p  = Math.max(300, Math.min(1100, p  + (Math.random()-.5)*5));
+
+        gx = Math.max(-5, Math.min(5, gx + (Math.random()-.5)*0.3));
+        gy = Math.max(-5, Math.min(5, gy + (Math.random()-.5)*0.3));
+        gz = Math.max(-5, Math.min(5, gz + (Math.random()-.5)*0.3));
+
+        document.getElementById('v-temp').innerHTML = t.toFixed(1)  + '<span class="sensor-unit-lg">°C</span>';
+        document.getElementById('b-temp').style.width = ((t+10)/70*100).toFixed(1)+'%';
+
+        document.getElementById('v-turb').innerHTML = Math.round(tb) + '<span class="sensor-unit-lg">NTU</span>';
+        document.getElementById('b-turb').style.width = (tb/400*100).toFixed(1)+'%';
+
+        document.getElementById('v-pres').innerHTML = Math.round(p) + '<span class="sensor-unit-lg">hPa</span>';
+        document.getElementById('b-pres').style.width = ((p-300)/800*100).toFixed(1)+'%';
+
+        const mag = Math.sqrt(gx*gx + gy*gy + gz*gz);
+        document.getElementById('v-gyro-main').innerHTML = mag.toFixed(2) + '<span class="sensor-unit-lg">°/s</span>';
+        document.getElementById('v-gx').innerHTML = (gx>=0?'':'')+gx.toFixed(2) + '<span class="gyro-axis-unit">°/s</span>';
+        document.getElementById('v-gy').innerHTML = (gy>=0?'':'') +gy.toFixed(2) + '<span class="gyro-axis-unit">°/s</span>';
+        document.getElementById('v-gz').innerHTML = (gz>=0?'':'')+gz.toFixed(2) + '<span class="gyro-axis-unit">°/s</span>';
+    }, 2000);
+
+    /* ── KPI counters ── */
+    let packets = 12847;
+    setInterval(() => {
+        packets += Math.floor(Math.random() * 5) + 1;
+        document.getElementById('kpi-packets').textContent = packets.toLocaleString();
+    }, 3000);
+    </script>
+</body>
+</html>
